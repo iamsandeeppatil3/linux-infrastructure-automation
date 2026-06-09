@@ -1,0 +1,82 @@
+---
+# =============================================================================
+# Playbook Name : ubuntu_repository_standardization.yml
+# Author        : Sandeep Patil
+# Version       : 1.0
+# Created       : 2026-06-08
+# Updated       : 2026-06-08
+#
+# Purpose:
+# Standardizes Ubuntu package repositories by replacing existing
+# repository definitions with approved internal mirrors.
+#
+# Features:
+# - Backs up existing repository configuration
+# - Replaces sources.list contents
+# - Configures custom package repositories
+# - Archives legacy repository definitions
+# - Supports large-scale repository migration projects
+#
+# Requirements:
+# - Ansible 2.12+
+# - Ubuntu target hosts
+#
+# Usage:
+# ansible-playbook ubuntu_repository_standardization.yml
+#
+# =============================================================================
+
+* name: Standardize Ubuntu package repositories
+  hosts: all
+  become: true
+
+  vars:
+
+  ubuntu_release: "jammy"
+
+  repository_block: |
+  deb [arch=amd64] http://repository.example.com/ubuntu {{ ubuntu_release }} main
+  deb [arch=amd64] http://repository.example.com/ubuntu {{ ubuntu_release }}-updates main
+  deb [arch=amd64] http://repository.example.com/ubuntu {{ ubuntu_release }}-security main
+  deb [trusted=yes] http://repository.example.com/local-repo ./
+
+  tasks:
+
+  * name: Backup existing sources.list
+    copy:
+    src: /etc/apt/sources.list
+    dest: /etc/apt/sources.list.bkp
+    remote_src: true
+    force: false
+
+  * name: Clear existing sources.list
+    copy:
+    dest: /etc/apt/sources.list
+    content: ""
+
+  * name: Configure approved repositories
+    blockinfile:
+    path: /etc/apt/sources.list
+    marker: "# {mark} ANSIBLE MANAGED REPOSITORIES"
+    block: "{{ repository_block }}"
+
+  * name: Find legacy repository files
+    find:
+    paths: /etc/apt/sources.list.d
+    patterns: "*.list"
+    register: repository_files
+
+  * name: Archive legacy repository files
+    shell: |
+    for file in /etc/apt/sources.list.d/*.list
+    do
+    [ -e "$file" ] && mv "$file" "$file.bkp"
+    done
+    args:
+    executable: /bin/bash
+    when: repository_files.matched > 0
+
+  * name: Refresh package cache
+    apt:
+    update_cache: true
+    ...
