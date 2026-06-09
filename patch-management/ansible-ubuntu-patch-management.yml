@@ -1,0 +1,81 @@
+---
+# =============================================================================
+# Playbook Name : ubuntu_patch_management.yml
+# Author        : Sandeep Patil
+# Version       : 1.0
+# Created       : 2026-06-08
+# Updated       : 2026-06-08
+#
+# Purpose:
+# Standardizes Ubuntu patch management while preventing upgrades of
+# business-critical services that require separate maintenance windows.
+#
+# Features:
+# - Holds critical infrastructure packages
+# - Performs operating system patching
+# - Cleans obsolete packages
+# - Detects reboot requirements
+# - Supports large-scale fleet patching
+#
+# Requirements:
+# - Ansible 2.12+
+# - Ubuntu-based target systems
+#
+# Usage:
+# ansible-playbook ubuntu_patch_management.yml
+#
+# =============================================================================
+
+* name: Ubuntu patch management with package protection
+  hosts: all
+  become: true
+
+  vars:
+
+  protected_packages:
+  - docker*
+  - containerd*
+  - mongodb*
+  - mysql*
+  - redis*
+  - rabbitmq*
+  - postgresql*
+  - elasticsearch*
+  - nginx*
+  - erlang*
+  - salt-minion
+  - salt-common
+  - smbclient
+  - prometheus-node-exporter
+
+  tasks:
+
+  * name: Update apt cache
+    apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+  * name: Hold protected packages
+    shell: "apt-mark hold {{ item }}"
+    loop: "{{ protected_packages }}"
+    register: hold_result
+    changed_when: "'was already set on hold' not in hold_result.stdout"
+    failed_when: false
+
+  * name: Upgrade operating system packages
+    apt:
+    upgrade: dist
+    autoremove: true
+    autoclean: true
+    force_apt_get: true
+
+  * name: Check reboot requirement
+    stat:
+    path: /var/run/reboot-required
+    register: reboot_required
+
+  * name: Display reboot status
+    debug:
+    msg: "Reboot required on {{ inventory_hostname }}"
+    when: reboot_required.stat.exists
+    ...
