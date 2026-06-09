@@ -1,0 +1,85 @@
+---
+# =============================================================================
+# Playbook Name : salt_minion_onboarding.yml
+# Author        : Sandeep Patil
+# Version       : 1.0
+# Created       : 2025-02-05
+# Updated       : 2026-06-08
+#
+# Purpose:
+# Automates Salt Minion installation, configuration, and service
+# onboarding for Linux servers.
+#
+# Features:
+# - Salt Minion installation
+# - Automated Minion ID assignment
+# - Salt Master configuration
+# - Directory creation and permissions management
+# - Service enablement and restart
+#
+# Requirements:
+# - Ansible 2.12+
+# - Debian/Ubuntu target systems
+# - Reachability to Salt Master
+#
+# Inventory Format:
+#
+# server01.example.com ansible_host=192.0.2.10
+# server02.example.com ansible_host=192.0.2.11
+#
+# The inventory hostname is used as the Salt Minion ID.
+#
+# Usage:
+# ansible-playbook salt_minion_onboarding.yml
+#
+# =============================================================================
+
+* name: Install and configure Salt Minion
+  hosts: all
+  become: true
+
+  vars:
+  salt_master: "salt-master.example.com"
+  salt_minion_package: "salt-minion"
+
+  tasks:
+
+  * name: Install Salt Minion package
+    apt:
+    name: "{{ salt_minion_package }}"
+    state: present
+    when: ansible_os_family == "Debian"
+
+  * name: Create Salt log directory
+    file:
+    path: /var/log/salt
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+  * name: Create Salt cache directory
+    file:
+    path: /var/lib/salt/salt-cache
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+  * name: Configure Salt Minion
+    blockinfile:
+    path: /etc/salt/minion
+    marker: "# {mark} ANSIBLE MANAGED BLOCK"
+    block: |
+    user: root
+    master: {{ salt_master }}
+    id: {{ inventory_hostname }}
+    log_file: /var/log/salt/minion
+    cachedir: /var/lib/salt/salt-cache
+
+  * name: Restart and enable Salt Minion
+    systemd:
+    name: salt-minion
+    state: restarted
+    enabled: true
+    ...
