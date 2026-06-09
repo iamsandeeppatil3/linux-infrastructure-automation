@@ -1,0 +1,88 @@
+---
+# =============================================================================
+# Playbook Name : cifs_share_provisioning.yml
+# Author        : Sandeep Patil
+# Version       : 1.0
+# Created       : 2026-06-08
+# Updated       : 2026-06-08
+#
+# Purpose:
+# Automates CIFS share provisioning and persistent filesystem
+# configuration across Linux servers.
+#
+# Features:
+# - Installs CIFS dependencies
+# - Creates mount directories
+# - Configures persistent mounts
+# - Supports multiple CIFS shares
+# - Automatically mounts filesystems
+#
+# Requirements:
+# - Ansible 2.12+
+# - Linux target hosts
+# - CIFS/SMB server access
+#
+# Usage:
+# ansible-playbook cifs_share_provisioning.yml
+#
+# =============================================================================
+
+* name: Configure CIFS mounts
+  hosts: all
+  become: true
+
+  vars:
+
+  smb_server_hostname: "fileserver.example.com"
+  smb_server_ip: "192.0.2.10"
+
+  mounts:
+  - src: "//fileserver.example.com/application-configs"
+  path: "/var/configs"
+
+  ```
+  - src: "//fileserver.example.com/ssl-certificates"
+    path: "/var/ssl"
+  ```
+
+  cifs_opts: >-
+  username={{ cifs_username }},
+  password={{ cifs_password }},
+  vers=3.1.1,
+  sec=ntlmssp,
+  iocharset=utf8,
+  cache=loose,
+  actimeo=3600,
+  _netdev,
+  nofail,
+  x-systemd.automount
+
+  tasks:
+
+  * name: Install CIFS utilities
+    package:
+    name: cifs-utils
+    state: present
+
+  * name: Add SMB server hostname mapping
+    lineinfile:
+    path: /etc/hosts
+    line: "{{ smb_server_ip }} {{ smb_server_hostname }}"
+    state: present
+
+  * name: Create mount point directories
+    file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "0755"
+    loop: "{{ mounts }}"
+
+  * name: Configure and mount CIFS shares
+    mount:
+    path: "{{ item.path }}"
+    src: "{{ item.src }}"
+    fstype: cifs
+    opts: "{{ cifs_opts }}"
+    state: mounted
+    loop: "{{ mounts }}"
+    ...
